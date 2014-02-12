@@ -1223,7 +1223,6 @@ public class HorizontalListView extends AdapterView<ListAdapter> {
                     return true;
                 }
             }
-            unpressTouchedChild();
             return HorizontalListView.this
                     .onFling(e1, e2, velocityX, velocityY);
         }
@@ -1349,6 +1348,10 @@ public class HorizontalListView extends AdapterView<ListAdapter> {
 
             // Allow the user to interact with parent views
             requestParentListViewToNotInterceptTouchEvents(false);
+
+            if(mSelectionListener!=null && mViewBeingTouched!=null){
+                mSelectionListener.onItemSelected(mViewBeingTouched, false);
+            }
         }
 
         return super.onTouchEvent(event);
