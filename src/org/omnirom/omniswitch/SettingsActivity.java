@@ -47,15 +47,12 @@ import android.preference.PreferenceManager;
 import android.preference.PreferenceScreen;
 import android.preference.SwitchPreference;
 import android.util.Log;
-import android.view.Menu;
-import android.view.View;
-import android.view.View.OnClickListener;
-import android.widget.Switch;
 
 public class SettingsActivity extends PreferenceActivity implements
         OnPreferenceChangeListener  {
     private static final String TAG = "SettingsActivity";
 
+    public static final String PREF_SERVICE_STATE = "toggle_service";
     public static final String PREF_OPACITY = "opacity";
     public static final String PREF_ANIMATE = "animate";
     public static final String PREF_START_ON_BOOT = "start_on_boot";
@@ -75,7 +72,6 @@ public class SettingsActivity extends PreferenceActivity implements
     public static final String PREF_BUTTON_DEFAULT = "1,1,1,1,1";
     public static final String PREF_AUTO_HIDE_HANDLE = "auto_hide_handle";
     public static final String PREF_DRAG_HANDLE_ENABLE = "drag_handle_enable";
-    public static final String PREF_ENABLE = "enable";
 
     public static int BUTTON_KILL_ALL = 0;
     public static int BUTTON_KILL_OTHER = 1;
@@ -83,6 +79,7 @@ public class SettingsActivity extends PreferenceActivity implements
     public static int BUTTON_HOME = 3;
     public static int BUTTON_SETTINGS = 4;
 
+    private SwitchPreference mToggleService;
     private ListPreference mIconSize;
     private SeekBarPreference mOpacity;
     private Preference mFavoriteAppsConfig;
@@ -99,8 +96,6 @@ public class SettingsActivity extends PreferenceActivity implements
     private SwitchPreference mDragHandleEnable;
     private CheckBoxPreference mDragHandleAutoHide;
     private DragHandleColorPreference mDragHandleColor;
-
-    private Switch mToggleServiceSwitch;
 
     @Override
     public void onPause() {
@@ -125,6 +120,10 @@ public class SettingsActivity extends PreferenceActivity implements
         sPrefs = PreferenceManager.getDefaultSharedPreferences(this);
 
         addPreferencesFromResource(R.xml.recents_settings);
+
+        mToggleService = (SwitchPreference) findPreference(PREF_SERVICE_STATE);
+        mToggleService.setChecked(SwitchService.isRunning());
+        mToggleService.setOnPreferenceChangeListener(this);
 
         mIconSize = (ListPreference) findPreference(PREF_ICON_SIZE);
         mIconSize.setOnPreferenceChangeListener(this);
@@ -202,7 +201,23 @@ public class SettingsActivity extends PreferenceActivity implements
 
     @Override
     public boolean onPreferenceChange(Preference preference, Object newValue) {
-        if (preference == mIconSize) {
+        if (preference == mToggleService) {
+            boolean value = (Boolean) newValue;
+
+            Intent svc = new Intent(this, SwitchService.class);
+            if (value) {
+                Intent killRecent = new Intent(
+                        SwitchService.RecentsReceiver.ACTION_KILL_ACTIVITY);
+                sendBroadcast(killRecent);
+
+                startService(svc);
+            } else {
+                Intent killRecent = new Intent(
+                        SwitchService.RecentsReceiver.ACTION_KILL_ACTIVITY);
+                sendBroadcast(killRecent);
+            }
+            return true;
+        } else if (preference == mIconSize) {
             String value = (String) newValue;
             List<CharSequence> values = Arrays.asList(mIconSize
                     .getEntryValues());
@@ -295,33 +310,5 @@ public class SettingsActivity extends PreferenceActivity implements
         if (mGestureView != null && mGestureView.isShowing()){
             mGestureView.handleRotation();
         }
-    }
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        Log.d(TAG, "onCreateOptionsMenu");
-        getMenuInflater().inflate(R.menu.settings_menu, menu);
-        boolean startOnBoot = sPrefs.getBoolean(SettingsActivity.PREF_START_ON_BOOT, false);
-        mToggleServiceSwitch = (Switch) menu.findItem(R.id.toggle_service).getActionView().findViewById(R.id.switch_item);
-        mToggleServiceSwitch.setChecked(SwitchService.isRunning() && sPrefs.getBoolean(SettingsActivity.PREF_ENABLE, startOnBoot));
-        mToggleServiceSwitch.setOnClickListener(new OnClickListener(){
-            @Override
-            public void onClick(View v) {
-                boolean value = ((Switch)v).isChecked();
-                Intent svc = new Intent(SettingsActivity.this, SwitchService.class);
-                Log.d(TAG, "toggle service " + value);
-                if (value) {
-                    if (SwitchService.isRunning()){
-                        stopService(svc);
-                    }
-                    startService(svc);
-                } else {
-                    if (SwitchService.isRunning()){
-                        stopService(svc);
-                    }
-                }
-                sPrefs.edit().putBoolean(PREF_ENABLE, value).commit();
-            }});
-        return true;
     }
 }
